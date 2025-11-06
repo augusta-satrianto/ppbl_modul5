@@ -23,7 +23,19 @@ class ReadData extends StatefulWidget {
 }
 
 class _ReadDataState extends State<ReadData> {
-  List<Saham> futureSaham = [];
+  late Future<List<Saham>> _futureSaham;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureSaham = fetchSaham();
+  }
+
+  void _refreshData() {
+    setState(() {
+      _futureSaham = fetchSaham();
+    });
+  }
 
   Future<void> _deleteSaham(Saham saham) async {
     final confirmed = await showDialog<bool>(
@@ -66,7 +78,7 @@ class _ReadDataState extends State<ReadData> {
           );
         });
 
-        setState(() {});
+        _refreshData();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -105,28 +117,32 @@ class _ReadDataState extends State<ReadData> {
                     MaterialPageRoute(
                       builder: (context) => const FormTransaksi(),
                     ),
-                  );
+                  ).then((result) {
+                    if (result == true) {
+                      _refreshData();
+                    }
+                  });
                 },
                 child: const Text("Transaksi"),
               ),
               const SizedBox(height: 12),
               Expanded(
-                child: FutureBuilder(
-                  future: fetchSaham(),
+                child: FutureBuilder<List<Saham>>(
+                  future: _futureSaham,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
                     }
 
-                    if (snapshot.hasData) {
-                      futureSaham = snapshot.data!;
-                    } else {
-                      return const Center(child: Text("Tidak ada data"));
+                    if (snapshot.hasError) {
+                      return Center(child: Text("Error: ${snapshot.error}"));
                     }
 
-                    if (futureSaham.isEmpty) {
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
                       return const Center(child: Text("Tidak ada data saham"));
                     }
+
+                    final futureSaham = snapshot.data!;
 
                     return ListView.builder(
                       itemCount: futureSaham.length,
@@ -185,7 +201,7 @@ class _ReadDataState extends State<ReadData> {
                                                     FormEdit(saham: saham),
                                           ),
                                         ).then((value) {
-                                          setState(() {});
+                                          _refreshData(); // Refresh setelah edit
                                         });
                                       },
                                       tooltip: 'Edit',
